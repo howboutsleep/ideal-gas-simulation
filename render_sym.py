@@ -10,9 +10,9 @@ def get_data():
     data = open('data.txt', 'r').read()
     lines = np.array(data.split('\n'))
     Positions = []
-    for line in lines:
+    for line in lines[1:]:
         if len(line) > 1:
-            Positions.append((float(line.split(' ')[0]), float(line.split(' ')[1])))
+            Positions.append((float(line.split(' ')[1]), float(line.split(' ')[2])))
     return Positions
 
 def visualize(boxSize, radius):

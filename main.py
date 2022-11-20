@@ -8,16 +8,18 @@ class Molecule:
     def __init__(self, radius, V, planeSize):
         self.Radius = radius
         self.randomizePosition(planeSize)
-        self.randomizeVelocity(V)
+        self.randomizeVelocity(V, planeSize[2])
 
     def randomizePosition(self, planeSize):
-        x, y = random() * planeSize[0], random() * planeSize[1]
-        self.Position = (x, y)
+        x, y, z = random() * planeSize[0], random() * planeSize[1], random() * planeSize[2]
+        self.Position = (x, y, z)
 
-    def randomizeVelocity(self, V):
+    def randomizeVelocity(self, V, Z):
         x = random() * V * (1 if random() > 0.5 else -1)
-        y = sqrt(V ** 2 - x ** 2) * (1 if random() > 0.5 else -1)
-        self.Velocity = (x, y)
+        y = random() * sqrt(V ** 2 - x ** 2) * (1 if random() > 0.5 else -1) if Z else sqrt(V ** 2 - x ** 2) * (1 if random() > 0.5 else -1)
+        z = sqrt(V ** 2 - x ** 2 - y ** 2) * (1 if random() > 0.5 else -1) if Z else 0
+
+        self.Velocity = (x, y, z)
 
     def velocityMod(self):
         return sqrt(self.Velocity[0] ** 2 + self.Velocity[1] ** 2)
@@ -30,6 +32,8 @@ class Molecule:
 
     def collision(self, other):
         dist = self.distance(other)
+        if dist == 0:
+            dist = 0.00000000000001
         if dist <= self.Radius * 2:
             dx, dy = self.Position[0] - other.Position[0], self.Position[1] - other.Position[1]
             dvx, dvy = self.Velocity[0] - other.Velocity[0], self.Velocity[1] - other.Velocity[1]
@@ -80,9 +84,11 @@ class Box:
 class Simulation:
 
     def __init__(self, num, V, radius, planeSize):
+        self.dt = radius/V*0.25
         self.N = num
         self.molecules = self.generateFirstState(num, V, radius, planeSize)
         self.box = Box(planeSize)
+        self.time_passed = 0
         processes = []
         p_run = multiprocessing.Process(target=self.run)
         p_run.start()
@@ -105,11 +111,8 @@ class Simulation:
         return E
 
     def run(self):
-        tl = time.perf_counter()
         while 1:
-            tr = time.perf_counter()
-            self.update(tr - tl)
-            tl = tr
+            self.update(self.dt)
 
     def update(self, dt):
         for molecule in self.molecules:
@@ -119,25 +122,26 @@ class Simulation:
         for i in range(len(self.molecules)):
             for j in range(i + 1, len(self.molecules)):
                 self.molecules[i].collision(self.molecules[j])
+        self.time_passed += dt
         data = open('data.txt', 'r+')
         data.close()
 
         with open(r'data.txt', 'w') as data:
-            data.write('\n'.join(
-                map(str, [f'{mol.Position[0]} {mol.Position[1]} {mol.velocityMod()}' for mol in self.molecules])))
+            data.write('\n'.join([str(self.time_passed*1000)]+
+                list(map(str, [f'{mol.velocityMod()} {mol.Position[0]} {mol.Position[1]} ' for mol in self.molecules]))))
 
     def generateFirstState(self, num, V, radius, planeSize):
         return list([Molecule(radius, V, planeSize) for i in range(num)])
 
 
-NUM             = 1000         # Number of particles
-VELOCITY        = 1000         # Starting velocity module
-RADIUS          = 5            # Radius of particles
-BOX             = (1000, 1000) # "Crystal" size
-VELOCITY_LIMIT  = 2000         # The speed at which a molecule can leave a crystallite
-CAN_LEAVE       = False        # True if molecule can leave crystallite, False if not
-VISUALISE       = False        # True if you want to visualize the simulation, False if not. DO NOT SET TO TRUE ON LARGE NUMBERS
-GRAPH           = True         # True if you want to see animated histogram of particle velocities, False if not
+NUM             = 1000              # Number of particles
+VELOCITY        = 2000              # Starting velocity module
+RADIUS          = 2                # Radius of particles
+BOX             = (1000, 1000,  0)  # "Crystal" size
+VELOCITY_LIMIT  = 3000              # The speed at which a molecule can leave a crystallite
+CAN_LEAVE       = False             # True if molecule can leave crystallite, False if not
+VISUALISE       = False             # True if you want to visualize the simulation, False if not. DO NOT SET TO TRUE ON LARGE NUMBERS. Shows 2 dimentions
+GRAPH           = True              # True if you want to see animated histogram of particle velocities, False if not
 
 if __name__ == '__main__':
     from render_sym import visualize
